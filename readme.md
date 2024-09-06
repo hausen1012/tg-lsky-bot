@@ -22,7 +22,7 @@ services:
     container_name: tg-lsky-bot
     restart: always
     environment:
-      - BOT_TOKEN=xxx
+      - TELEGRAM_BOT_TOKEN=xxx
       - API_BASE_URL=xxx
       - API_USERNAME=xxx
       - API_PASSWORD=xxx

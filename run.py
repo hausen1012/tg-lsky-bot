@@ -6,6 +6,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, CallbackContext
 from telegram.constants import ChatAction
+from telegram.ext import CommandHandler
 
 # 从环境变量读取配置
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -143,11 +144,18 @@ async def handle_unsupported_message(update: Update, context: CallbackContext):
     timestamped_print("收到非图片消息，提示用户发送图片")
     await update.message.reply_text("不支持的文件类型，请发送图片。")
 
+async def start(update: Update, context: CallbackContext):
+    user_first_name = update.message.from_user.first_name
+    welcome_message = f"您好，我是一个图床机器人，{user_first_name}！请发送图片以获取上传链接。"
+    await update.message.reply_text(welcome_message)
+
 # 运行主程序
 def main():
     timestamped_print("启动 Telegram Bot...")
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+    # 注册 /start 命令的 handler
+    application.add_handler(CommandHandler('start', start))
     # 注册处理图片消息的 handler
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     # 注册处理非图片消息的 handler

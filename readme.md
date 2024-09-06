@@ -1,4 +1,6 @@
-```
+docker 直接运行：
+
+```sh
 docker run -d \
 --name tg-lsky-bot \
 -e TELEGRAM_BOT_TOKEN=xxx \
@@ -9,3 +11,19 @@ docker run -d \
 hausen1012/tg-lsky-bot
 ```
 
+docker-compose 运行：
+
+```yaml
+version: '3'
+services:
+  tg-lsky-bot:
+    image: hausen1012/tg-lsky-bot
+    container_name: tg-lsky-bot
+    restart: always
+    environment:
+      - BOT_TOKEN=xxx
+      - API_BASE_URL=xxx
+      - API_USERNAME=xxx
+      - API_PASSWORD=xxx
+      - STRATEGY_ID=1
+```

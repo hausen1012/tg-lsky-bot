@@ -13,6 +13,10 @@ API_BASE_URL = os.getenv('API_BASE_URL')
 API_USERNAME = os.getenv('API_USERNAME')
 API_PASSWORD = os.getenv('API_PASSWORD',)
 STRATEGY_ID = int(os.getenv('STRATEGY_ID', '1'))  # STRATEGY_ID 默认为 '1'
+ALLOWED_USERS = os.getenv('ALLOWED_USERS', '').split(',')  # 允许的用户列表，逗号分隔
+
+if ALLOWED_USERS == ['']:
+    ALLOWED_USERS = []
 
 # Token 保存路径
 TOKEN_FILE = 'token.json'
@@ -85,8 +89,18 @@ def upload_image(file_path, token):
         response.raise_for_status()
         return response.json().get('data', {}).get('links')
 
+# 校验用户是否被允许
+def is_user_allowed(user_id):
+    # 如果 ALLOWED_USERS 为空，则所有用户都有权限
+    return str(user_id) in ALLOWED_USERS or not ALLOWED_USERS
+
 # 处理图片消息
 async def handle_photo(update: Update, context: CallbackContext):
+    if not is_user_allowed(update.message.from_user.id):
+        timestamped_print(f"{update.message.from_user.id} 用户未被授权访问")
+        await update.message.reply_text("您没有权限使用此机器人。")
+        return
+
     timestamped_print("收到图片消息")
     # 通知用户正在处理图片
     await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
@@ -121,6 +135,11 @@ async def handle_photo(update: Update, context: CallbackContext):
 
 # 处理非图片消息
 async def handle_unsupported_message(update: Update, context: CallbackContext):
+    if not is_user_allowed(update.message.from_user.id):
+        timestamped_print(f"{update.message.from_user.id} 用户未被授权访问")
+        await update.message.reply_text("您没有权限使用此机器人。")
+        return
+
     timestamped_print("收到非图片消息，提示用户发送图片")
     await update.message.reply_text("不支持的文件类型，请发送图片。")
 

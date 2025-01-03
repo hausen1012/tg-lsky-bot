@@ -96,18 +96,41 @@ def is_user_allowed(user_id):
     return str(user_id) in ALLOWED_USERS or not ALLOWED_USERS
 
 # 处理图片消息
-async def handle_photo(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: CallbackContext):
+    #调试用的数据
+    #update_json = json.dumps(update.to_dict(), ensure_ascii=False, indent=4)
+    #timestamped_print(f"收到的 Update 数据: {update_json}")
+
     if not is_user_allowed(update.message.from_user.id):
         timestamped_print(f"{update.message.from_user.id} 用户未被授权访问")
         await update.message.reply_text("您没有权限使用此机器人。")
         return
 
-    timestamped_print("收到图片消息")
+    
     # 通知用户正在处理图片
     await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
     
-    file = await context.bot.get_file(update.message.photo[-1].file_id)
-    file_path = 'temp.jpg'
+    if update.message.photo:
+        timestamped_print("收到图片消息")
+        file_id = update.message.photo[-1].file_id
+        file_path = 'temp.jpg'
+    elif update.message.document and update.message.document.mime_type.startswith('image/'):
+        timestamped_print("收到文件消息")
+        file_id = update.message.document.file_id
+        file_path = update.message.document.file_name
+    elif update.message.document and update.message.document.mime_type == 'video/mp4' and update.message.animation:
+        timestamped_print("收到gif消息")
+        # file_id = update.message.animation
+        # file_path = 'temp.gif'
+        await update.message.reply_text("不支持gif文件类型")
+        return
+
+    else:
+        timestamped_print("收到非图片消息")
+        await update.message.reply_text("不支持的文件类型，请发送图片。")
+        return
+
+    file = await context.bot.get_file(file_id)
     await file.download_to_drive(file_path)
 
     token = get_valid_token()
@@ -130,23 +153,9 @@ async def handle_photo(update: Update, context: CallbackContext):
     except Exception as e:
         timestamped_print(f"上传图片时出错: {e}")
         await update.message.reply_text(f"上传图片时出错: {e}")
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)  # 删除临时文件
-
-# 处理非图片消息
-async def handle_other_message(update: Update, context: CallbackContext):
-    if not is_user_allowed(update.message.from_user.id):
-        timestamped_print(f"{update.message.from_user.id} 用户未被授权访问")
-        await update.message.reply_text("您没有权限使用此机器人。")
-        return
-
-    # 检查消息是否包含图片文件
-    if update.message.document and update.message.document.mime_type.startswith('image/'):
-        await handle_photo(update, context)
-    else:
-        timestamped_print("收到非图片消息，提示用户发送图片")
-        await update.message.reply_text("不支持的文件类型，请发送图片。")
+    # finally:
+    #     if os.path.exists(file_path):
+    #         os.remove(file_path)
 
 async def start(update: Update, context: CallbackContext):
     user_first_name = update.message.from_user.first_name
@@ -160,10 +169,8 @@ def main():
 
     # 注册 /start 命令的 handler
     application.add_handler(CommandHandler('start', start))
-    # 注册处理图片消息的 handler
-    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    # 注册处理非图片消息的 handler
-    application.add_handler(MessageHandler(~filters.PHOTO, handle_other_message))
+    # 注册处理消息的 handler
+    application.add_handler(MessageHandler(None, handle_message))
     application.run_polling()
 
 if __name__ == '__main__':

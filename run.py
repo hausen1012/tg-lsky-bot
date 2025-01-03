@@ -135,14 +135,18 @@ async def handle_photo(update: Update, context: CallbackContext):
             os.remove(file_path)  # 删除临时文件
 
 # 处理非图片消息
-async def handle_unsupported_message(update: Update, context: CallbackContext):
+async def handle_other_message(update: Update, context: CallbackContext):
     if not is_user_allowed(update.message.from_user.id):
         timestamped_print(f"{update.message.from_user.id} 用户未被授权访问")
         await update.message.reply_text("您没有权限使用此机器人。")
         return
 
-    timestamped_print("收到非图片消息，提示用户发送图片")
-    await update.message.reply_text("不支持的文件类型，请发送图片。")
+    # 检查消息是否包含图片文件
+    if update.message.document and update.message.document.mime_type.startswith('image/'):
+        await handle_photo(update, context)
+    else:
+        timestamped_print("收到非图片消息，提示用户发送图片")
+        await update.message.reply_text("不支持的文件类型，请发送图片。")
 
 async def start(update: Update, context: CallbackContext):
     user_first_name = update.message.from_user.first_name
@@ -159,7 +163,7 @@ def main():
     # 注册处理图片消息的 handler
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     # 注册处理非图片消息的 handler
-    application.add_handler(MessageHandler(~filters.PHOTO, handle_unsupported_message))
+    application.add_handler(MessageHandler(~filters.PHOTO, handle_other_message))
     application.run_polling()
 
 if __name__ == '__main__':

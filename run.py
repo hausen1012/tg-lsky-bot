@@ -95,6 +95,27 @@ def is_user_allowed(user_id):
     # 如果 ALLOWED_USERS 为空，则所有用户都有权限
     return str(user_id) in ALLOWED_USERS or not ALLOWED_USERS
 
+# 将mp4转为gif 
+def mp42gif(in_file_path, out_file_path):
+        ''''''
+        palette_path = out_file_path.replace('.gif', '_palette.png')
+        command = 'ffmpeg -y -i %(mp4)s -vf fps=10,scale=-1:-1:flags=lanczos,palettegen %(palette)s'
+        command = command % {'mp4': in_file_path, 'palette': palette_path}
+        status = os.system(command + ' > /dev/null 2>&1')
+        if status != 0:
+            os.path.isfile(palette_path) and os.remove(palette_path)
+            raise Exception('ffmpeg error: execute gif => _palette.png')
+
+        command = 'ffmpeg -y -i %(mp4)s -i %(palette)s -filter_complex "fps=10,scale=-1:-1:flags=lanczos[x];[x][1:v]paletteuse" %(gif)s'
+        command = command % {'mp4': in_file_path, 'palette': palette_path, 'gif': out_file_path}
+        status = os.system(command + ' > /dev/null 2>&1')
+        os.path.isfile(palette_path) and os.remove(palette_path)
+        if status != 0:
+            raise Exception('ffmpeg error: execute .gif => .mp4')
+        else:
+            return out_file_path
+
+
 # 处理图片消息
 async def handle_message(update: Update, context: CallbackContext):
     #调试用的数据
@@ -118,13 +139,10 @@ async def handle_message(update: Update, context: CallbackContext):
         timestamped_print("收到文件消息")
         file_id = update.message.document.file_id
         file_path = update.message.document.file_name
-    elif update.message.document and update.message.document.mime_type == 'video/mp4' and update.message.animation:
+    elif update.message.animation:
         timestamped_print("收到gif消息")
-        # file_id = update.message.animation
-        # file_path = 'temp.gif'
-        await update.message.reply_text("不支持gif文件类型")
-        return
-
+        file_id = update.message.animation.file_id
+        file_path = update.message.document.file_name
     else:
         timestamped_print("收到非图片消息")
         await update.message.reply_text("不支持的文件类型，请发送图片。")
@@ -132,6 +150,13 @@ async def handle_message(update: Update, context: CallbackContext):
 
     file = await context.bot.get_file(file_id)
     await file.download_to_drive(file_path)
+
+    # gif 需要特殊处理
+    if update.message.animation:
+        gif_path = file_path.replace('mp4', 'gif')
+        mp42gif(file_path, gif_path)
+        os.remove(file_path)
+        file_path = gif_path
 
     token = get_valid_token()
     try:
@@ -153,10 +178,9 @@ async def handle_message(update: Update, context: CallbackContext):
     except Exception as e:
         timestamped_print(f"上传图片时出错: {e}")
         await update.message.reply_text(f"上传图片时出错: {e}")
-    # finally:
-    #     if os.path.exists(file_path):
-    #         os.remove(file_path)
-
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 async def start(update: Update, context: CallbackContext):
     user_first_name = update.message.from_user.first_name
     welcome_message = f"您好，我是一个图床机器人，{user_first_name}！请发送图片以获取上传链接。"
@@ -175,3 +199,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
